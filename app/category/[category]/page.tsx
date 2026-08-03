@@ -2,20 +2,20 @@ import type { Metadata } from "next";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { StoryCard } from "@/components/StoryCard";
-import { getArticlesByCategory } from "@/lib/content";
+import {
+  getArticlesByCategory,
+  getCategories,
+ } from "@/lib/content";
 
-const labels: Record<string, string> = {
-  local: "Local",
-  politics: "Politics",
-  national: "National",
-  campus: "Student life",
-  sport: "Sport",
-  weather: "Weather",
-};
+const categories = await getCategories();
+const labels: Record<string, string> = categories.reduce((acc, category) => {
+  acc[category.slug] = category.title;
+  return acc;
+}, {} as Record<string, string>);
 
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {
   const { category } = await params;
-  return { title: labels[category] || "Stories" };
+  return { title: category || "Stories" };
 }
 
 export default async function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
@@ -28,7 +28,6 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
       <main id="main-content" className="archive shell">
         <header className="archive-header">
           <h1>{label}</h1>
-          <p>Every story in this section, for better or worse.</p>
         </header>
         {articles.length ? (
           <div className="archive-list">

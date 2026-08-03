@@ -2,21 +2,30 @@ import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { StoryCard } from "@/components/StoryCard";
-import { getArticles } from "@/lib/content";
+import {
+  getArticles,
+  getSiteSettings,
+} from "@/lib/content";
 
 export default async function Home() {
+  const siteSettings = await getSiteSettings();
   const articles = await getArticles();
   const [lead, ...rest] = articles;
   const supporting = rest.slice(0, 2);
   const latest = rest.slice(2, 7);
-  const more = rest.length > 5 ? rest.slice(5) : rest.slice(0, 3);
+  const heroTitle = siteSettings.heroTitle?.trim();
+  const heroCategory = siteSettings.heroCategory?.trim();
+  const heroEyebrow = siteSettings.heroEyebrow?.trim();
+  const heroArticles = heroCategory
+    ? articles.filter((article) => article.categorySlug === heroCategory).slice(0, 3)
+    : [];
 
   return (
     <>
       <Header />
       <main id="main-content">
         <div className="edition-line shell">
-          <p>Monday, 3 August 2026</p>
+          <p>{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
           <p>Ōtepoti edition</p>
         </div>
 
@@ -27,7 +36,6 @@ export default async function Home() {
             <article className="lead-story">
               <Link href={`/story/${lead.slug}`} className="lead-image-wrap">
                 <img src={lead.image} alt={lead.imageAlt} className="lead-image" />
-                <span className="parody-stamp">Parody</span>
               </Link>
               <div className="lead-copy">
                 <Link href={`/category/${lead.categorySlug}`} className="kicker">
@@ -48,7 +56,6 @@ export default async function Home() {
               <aside className="just-in" aria-labelledby="just-in-title">
                 <div className="section-heading small-heading">
                   <h2 id="just-in-title">Just in</h2>
-                  <span>Mostly</span>
                 </div>
                 <ol>
                   {latest.map((article, index) => (
@@ -67,20 +74,22 @@ export default async function Home() {
               </aside>
             </section>
 
-            <section className="news-section shell" aria-labelledby="otago-title">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">The bottom of the South</p>
-                  <h2 id="otago-title">Otago &amp; beyond</h2>
+            {heroTitle && heroCategory && (
+              <section className="news-section shell" aria-labelledby="hero-section-title">
+                <div className="section-heading">
+                  <div>
+                    {heroEyebrow && <p className="eyebrow">{heroEyebrow}</p>}
+                    <h2 id="hero-section-title">{heroTitle}</h2>
+                  </div>
+                  <Link href={`/category/${heroCategory}`}>More stories <span aria-hidden="true">→</span></Link>
                 </div>
-                <Link href="/category/local">All local stories <span aria-hidden="true">→</span></Link>
-              </div>
-              <div className="story-grid">
-                {more.slice(0, 3).map((article) => (
-                  <StoryCard key={article.slug} article={article} />
-                ))}
-              </div>
-            </section>
+                <div className="story-grid">
+                  {heroArticles.map((article) => (
+                    <StoryCard key={article.slug} article={article} />
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         ) : (
           <section className="empty-state shell" aria-labelledby="empty-newsroom-title">
@@ -90,17 +99,19 @@ export default async function Home() {
           </section>
         )}
 
+        {siteSettings.lowBannerVisibility && (
         <section className="dispatch shell" aria-labelledby="dispatch-title">
           <div className="dispatch-mark" aria-hidden="true">D</div>
           <div>
-            <p className="eyebrow">Free. Questionably useful.</p>
-            <h2 id="dispatch-title">The Evening Misprint</h2>
-            <p>Fresh alternative truths, sent when somebody remembers the password.</p>
+            <p className="eyebrow">{siteSettings.lowBannerEyebrow}</p>
+            <h2 id="dispatch-title">{siteSettings.lowBannerTitle}</h2>
+            <p>{siteSettings.lowBannerText}</p>
           </div>
           <a className="button gold-button" href="https://www.instagram.com/dunedinherald/" target="_blank" rel="noreferrer">
             Follow on Instagram
           </a>
         </section>
+        )}
       </main>
       <Footer />
     </>

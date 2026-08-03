@@ -1,6 +1,12 @@
 import Link from "next/link";
+import {
+  getSiteSettings,
+  getCategories,
+} from "@/lib/content";
 
-export function Footer() {
+export async function Footer() {
+  const siteSettings = await getSiteSettings();
+  const categories = await getCategories();
   return (
     <footer className="site-footer">
       <div className="footer-grid shell">
@@ -9,23 +15,25 @@ export function Footer() {
             <img src="/brand-mark.jpg" alt="" />
             <span>The Dunedin Herald</span>
           </Link>
-          <p className="footer-copy">Independent satire from Ōtepoti. If a story seems unbelievable, that is because we wrote it. If it seems believable, that is somebody else&apos;s problem.</p>
+          <p className="footer-copy">{siteSettings.footerText}</p>
         </div>
         <div>
           <h2>Sections</h2>
           <ul className="footer-links">
-            <li><Link href="/category/local">Local</Link></li>
-            <li><Link href="/category/politics">Politics</Link></li>
-            <li><Link href="/category/campus">Student life</Link></li>
+            {categories.slice(0, 3).map((category) => (
+              <li key={category.slug}>
+                <Link href={`/category/${category.slug}`}>{category.title}</Link>
+              </li>
+            ))}
             <li><Link href="/search">Search</Link></li>
           </ul>
         </div>
         <div>
-          <h2>The fine print</h2>
+          <h2>Other Stuff</h2>
           <ul className="footer-links">
-            <li><Link href="/about">About &amp; disclaimer</Link></li>
-            <li><a href="https://www.instagram.com/dunedinherald/" target="_blank" rel="noreferrer">Instagram</a></li>
-            <li><a href="mailto:editor@dunedinherald.com">Contact the editor</a></li>
+            <li><Link href="/about">About</Link></li>
+            <li><a href={siteSettings.instagramUrl} target="_blank" rel="noreferrer">Instagram</a></li>
+            <li><a href={`mailto:${siteSettings.contactEmail}`}>Get in touch</a></li>
           </ul>
         </div>
       </div>

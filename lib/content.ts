@@ -1,4 +1,4 @@
-import type { Article } from "./types";
+import type { Article, PortableTextBlock } from "./types";
 
 const fallbackArticles: Article[] = [
   {
@@ -119,42 +119,136 @@ const fallbackArticles: Article[] = [
   },
 ];
 
-type SanityResult = Omit<Article, "categorySlug" | "displayDate" | "time" | "image"> & {
-  category?: string;
+type SanityResult = Omit<
+  Article,
+  "displayDate" | "time" | "image"
+> & {
   image?: string;
-  slug: string;
 };
 
 const articleQuery = `*[_type == "article" && !(_id in path("drafts.**"))] | order(featured desc, publishedAt desc) {
   title,
   "slug": slug.current,
   excerpt,
-  category,
+  "category": category->title,
+  "categorySlug": category->slug.current,
   author,
   publishedAt,
   "image": heroImage.asset->url,
   "imageAlt": heroImage.alt,
   "imageCaption": heroImage.caption,
   featured,
-  body
+  body,
+  instagramPostUrl,
 }`;
-
-function categorySlug(category = "Local") {
-  if (category.toLowerCase().includes("student")) return "campus";
-  return category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
 
 function formatArticle(article: SanityResult): Article {
   const date = new Date(article.publishedAt);
+
   return {
     ...article,
-    category: article.category || "Local",
-    categorySlug: categorySlug(article.category),
+    category: article.category || "Uncategorised",
+    categorySlug: article.categorySlug || "uncategorised",
     image: article.image || "/news/bakery-kosmos.jpg",
-    imageAlt: article.imageAlt || "Dunedin Herald story image",
-    displayDate: new Intl.DateTimeFormat("en-NZ", { day: "numeric", month: "short", year: "numeric", timeZone: "Pacific/Auckland" }).format(date),
-    time: new Intl.DateTimeFormat("en-NZ", { hour: "numeric", minute: "2-digit", timeZone: "Pacific/Auckland" }).format(date),
+    imageAlt:
+      article.imageAlt || "Dunedin Herald story image",
+
+    displayDate: new Intl.DateTimeFormat("en-NZ", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "Pacific/Auckland",
+    }).format(date),
+
+    time: new Intl.DateTimeFormat("en-NZ", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "Pacific/Auckland",
+    }).format(date),
+    instagramPostUrl: article.instagramPostUrl || "https://www.instagram.com/dunedinherald/",
   };
+}
+
+export type SiteSettings = {
+  taglineRight: string;
+  taglineLeft: string;
+  instagramUrl: string;
+  contactEmail: string;
+  footerText: string;
+  heroCategory?: string;
+  heroEyebrow?: string;
+  heroTitle?: string;
+  lowBannerText?: string;
+  lowBannerTitle?: string;
+  lowBannerEyebrow?: string;
+  lowBannerVisibility?: boolean;
+  passwordProtectionEnabled?: boolean;
+};
+
+const defaultSiteSettings: SiteSettings = {
+  taglineRight: "Ōtepoti's least reliable",
+  taglineLeft: "Critic's critic",
+  instagramUrl: "https://www.instagram.com/dunedinherald/",
+  contactEmail: "editor@dunedinherald.com",
+  footerText:
+    "The Dunedin Herald is a satirical publication. All content is parody and not intended to be taken as fact.",
+  passwordProtectionEnabled: false,
+};
+
+export async function getSiteSettings(): Promise<SiteSettings> {
+  const projectId = process.env.SANITY_PROJECT_ID;
+  const dataset = process.env.SANITY_DATASET || "production";
+  const apiVersion = process.env.SANITY_API_VERSION || "2026-08-01";
+  const token = process.env.SANITY_READ_TOKEN;
+
+  if (!projectId) return defaultSiteSettings;
+
+  const query = `*[
+    _type == "siteSettings" &&
+    !(_id in path("drafts.**"))
+  ][0] {
+    taglineRight,
+    taglineLeft,
+    instagramUrl,
+    contactEmail,
+    footerText,
+    "heroCategory": heroCategory->slug.current,
+    heroEyebrow,
+    heroTitle,
+    lowBannerText,
+    lowBannerTitle,
+    lowBannerEyebrow,
+    lowBannerVisibility,
+    passwordProtectionEnabled,
+  }`;
+
+  const url = new URL(
+    `https://${projectId}.api.sanity.io/v${apiVersion}/data/query/${dataset}`,
+  );
+
+  url.searchParams.set("query", query);
+
+  try {
+    const response = await fetch(url, {
+      headers: token
+        ? { Authorization: `Bearer ${token}` }
+        : undefined,
+      next: { revalidate: 60 },
+    });
+
+    if (!response.ok) return defaultSiteSettings;
+
+    const data = (await response.json()) as {
+      result?: Partial<SiteSettings>;
+    };
+
+    return {
+      ...defaultSiteSettings,
+      ...data.result,
+    };
+  } catch {
+    return defaultSiteSettings;
+  }
 }
 
 async function fetchSanityArticles(): Promise<Article[] | null> {
@@ -193,4 +287,110 @@ export async function getArticle(slug: string): Promise<Article | undefined> {
 export async function getArticlesByCategory(slug: string): Promise<Article[]> {
   const articles = await getArticles();
   return articles.filter((article) => article.categorySlug === slug);
+}
+
+export type AboutPage = {
+  eyebrow: string;
+  heading: string;
+  standfirst: string;
+  body: Array<string | PortableTextBlock>;
+};
+
+export async function getAboutPage(): Promise<AboutPage> {
+  const projectId = process.env.SANITY_PROJECT_ID;
+  const dataset = process.env.SANITY_DATASET || "production";
+  const apiVersion = process.env.SANITY_API_VERSION || "2026-08-01";
+  if (!projectId) return {
+    eyebrow: "About this questionable institution",
+    heading: "News, without the burden of accuracy.",
+    standfirst: "",
+    body: [],
+  };
+
+  const query = `*[_type == "aboutPage" && !(_id in path("drafts.**"))][0] {
+    eyebrow,
+    heading,
+    standfirst,
+    body
+  }`;
+
+  const url = new URL(`https://${projectId}.api.sanity.io/v${apiVersion}/data/query/${dataset}`);
+  url.searchParams.set("query", query);
+  const token = process.env.SANITY_READ_TOKEN;
+
+  try {
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      next: { revalidate: 60 },
+    });
+    if (!response.ok) return {
+      eyebrow: "About this questionable institution",
+      heading: "News, without the burden of accuracy.",
+      standfirst: "",
+      body: [],
+    };
+    const data = (await response.json()) as { result?: AboutPage };
+    return data.result ?? {
+      eyebrow: "About this questionable institution",
+      heading: "News, without the burden of accuracy.",
+      standfirst: "",
+      body: [],
+    };
+  } catch {
+    return {
+      eyebrow: "About this questionable institution",
+      heading: "News, without the burden of accuracy.",
+      standfirst: "",
+      body: [],
+    };
+  }
+}
+
+export type Category = {
+  title: string;
+  slug: string;
+};
+
+const categoryQuery = `*[
+  _type == "category" &&
+  showInNavigation == true &&
+  !(_id in path("drafts.**"))
+] | order(order asc) {
+  title,
+  "slug": slug.current
+}`;
+
+export async function getCategories(): Promise<Category[]> {
+  const projectId = process.env.SANITY_PROJECT_ID;
+  const dataset = process.env.SANITY_DATASET || "production";
+  const apiVersion =
+    process.env.SANITY_API_VERSION || "2026-08-01";
+  const token = process.env.SANITY_READ_TOKEN;
+
+  if (!projectId) return [];
+
+  const url = new URL(
+    `https://${projectId}.api.sanity.io/v${apiVersion}/data/query/${dataset}`,
+  );
+
+  url.searchParams.set("query", categoryQuery);
+
+  try {
+    const response = await fetch(url, {
+      headers: token
+        ? { Authorization: `Bearer ${token}` }
+        : undefined,
+      next: { revalidate: 60 },
+    });
+
+    if (!response.ok) return [];
+
+    const data = (await response.json()) as {
+      result?: Category[];
+    };
+
+    return data.result ?? [];
+  } catch {
+    return [];
+  }
 }

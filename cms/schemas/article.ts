@@ -1,13 +1,13 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
 
-const categories = [
-  { title: "Local", value: "Local" },
-  { title: "Politics", value: "Politics" },
-  { title: "National", value: "National" },
-  { title: "Student life", value: "Student life" },
-  { title: "Sport", value: "Sport" },
-  { title: "Weather", value: "Weather" },
-];
+defineField({
+  name: "category",
+  title: "Section",
+  type: "reference",
+  group: "publishing",
+  to: [{ type: "category" }],
+  validation: (rule) => rule.required(),
+})
 
 export const article = defineType({
   name: "article",
@@ -16,6 +16,7 @@ export const article = defineType({
   groups: [
     { name: "story", title: "Story", default: true },
     { name: "image", title: "Image & credit" },
+    { name: "instagram", title: "Instagram" },
     { name: "publishing", title: "Publishing" },
   ],
   fields: [
@@ -91,10 +92,9 @@ export const article = defineType({
     defineField({
       name: "category",
       title: "Section",
-      type: "string",
+      type: "reference",
       group: "publishing",
-      options: { list: categories, layout: "dropdown" },
-      initialValue: "Local",
+      to: [{ type: "category" }],
       validation: (rule) => rule.required(),
     }),
     defineField({
@@ -121,11 +121,18 @@ export const article = defineType({
       group: "publishing",
       initialValue: false,
     }),
+    defineField({
+      name: "instagramPostUrl",
+      title: "Instagram post URL",
+      description: "If this article has an Instagram post, paste the URL here.",
+      type: "url",
+      group: "instagram",
+    }),
   ],
   orderings: [
     { title: "Newest first", name: "publishedAtDesc", by: [{ field: "publishedAt", direction: "desc" }] },
   ],
   preview: {
-    select: { title: "title", subtitle: "category", media: "heroImage" },
+    select: { title: "title", subtitle: "category.title", media: "heroImage" },
   },
 });

@@ -21,4 +21,5 @@ export type Article = {
   imageCaption?: string;
   featured?: boolean;
   body: Array<string | PortableTextBlock>;
+  instagramPostUrl?: string;
 };

@@ -31,9 +31,6 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const article = await getArticle(slug);
   if (!article) notFound();
 
-  const shareUrl = encodeURIComponent(`https://dunedinherald.com/story/${article.slug}`);
-  const shareTitle = encodeURIComponent(article.title);
-
   return (
     <>
       <Header />
@@ -57,8 +54,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         <div className="article-layout">
           <aside className="share-rail" aria-label="Share this story">
             <p>Share</p>
-            <a href={`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`} target="_blank" rel="noreferrer">Facebook</a>
-            <a href={`https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareTitle}`} target="_blank" rel="noreferrer">X / Twitter</a>
+            <a className="share-cta" href={article.instagramPostUrl} target="_blank" rel="noreferrer">
+              Open Instagram
+            </a>
           </aside>
           <article className="article-body">
             {article.body.map((block, index) => <Block key={typeof block === "string" ? `${article.slug}-${index}` : block._key || index} block={block} />)}

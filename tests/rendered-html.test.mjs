@@ -23,7 +23,7 @@ test("server-renders the publication homepage", async () => {
   assert.match(html, /The Dunedin Herald/);
   assert.match(html, /Alternative truths/);
   assert.match(html, /Terrified/);
-  assert.match(html, /Parody, not reporting/);
+  assert.match(html, /Latest headlines/);
   assert.match(html, /\/og\.png/);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview|react-loading-skeleton/i);
 });
@@ -41,4 +41,13 @@ test("server-renders a complete article", async () => {
 test("returns a real 404 for an unknown story", async () => {
   const response = await render("/story/not-a-real-story");
   assert.equal(response.status, 404);
+});
+
+test("renders the private-edition password form", async () => {
+  const response = await render("/access");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /The presses are under wraps/i);
+  assert.match(html, /type="password"/i);
+  assert.match(html, /action="\/api\/access"/i);
 });
