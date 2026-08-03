@@ -125,7 +125,7 @@ type SanityResult = Omit<Article, "categorySlug" | "displayDate" | "time" | "ima
   slug: string;
 };
 
-const articleQuery = `*[_type == "article"] | order(featured desc, publishedAt desc) {
+const articleQuery = `*[_type == "article" && !(_id in path("drafts.**"))] | order(featured desc, publishedAt desc) {
   title,
   "slug": slug.current,
   excerpt,
@@ -172,17 +172,17 @@ async function fetchSanityArticles(): Promise<Article[] | null> {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       next: { revalidate: 60 },
     });
-    if (!response.ok) return null;
+    if (!response.ok) return [];
     const data = (await response.json()) as { result?: SanityResult[] };
-    if (!data.result?.length) return null;
+    if (!data.result?.length) return [];
     return data.result.map(formatArticle);
   } catch {
-    return null;
+    return [];
   }
 }
 
 export async function getArticles(): Promise<Article[]> {
-  return (await fetchSanityArticles()) || fallbackArticles;
+  return (await fetchSanityArticles()) ?? fallbackArticles;
 }
 
 export async function getArticle(slug: string): Promise<Article | undefined> {
