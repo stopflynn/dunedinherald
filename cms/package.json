@@ -1,0 +1,26 @@
+{
+  "name": "dunedin-herald-newsroom",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "sanity dev",
+    "build": "sanity build",
+    "deploy": "sanity deploy"
+  },
+  "dependencies": {
+    "@sanity/vision": "5.31.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sanity": "5.31.1",
+    "styled-components": "6.4.4"
+  },
+  "overrides": {
+    "adm-zip": "0.6.0",
+    "esbuild": "0.28.1",
+    "js-yaml": "3.15.0",
+    "postcss": "8.5.25",
+    "smol-toml": "1.6.1",
+    "uuid": "11.1.1"
+  }
+}
