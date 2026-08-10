@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "dunedinherald.com";
-  const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const configuredUrl = new URL(getSiteUrl());
+  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || configuredUrl.host;
+  const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : configuredUrl.protocol.replace(":", ""));
   const origin = `${protocol}://${host}`;
   const socialImage = `${origin}/og.png`;
 

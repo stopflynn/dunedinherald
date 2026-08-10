@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
 import { getArticles } from "@/lib/content";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = "https://dunedinherald.com";
+  const base = getSiteUrl();
   const articles = await getArticles();
   return [
     { url: base, changeFrequency: "daily", priority: 1 },

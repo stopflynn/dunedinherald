@@ -47,7 +47,7 @@ test("renders the private-edition password form", async () => {
   const response = await render("/access");
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /The presses are under wraps/i);
+  assert.match(html, /Coming Soon/i);
   assert.match(html, /type="password"/i);
   assert.match(html, /action="\/api\/access"/i);
 });
