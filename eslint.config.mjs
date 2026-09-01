@@ -7,7 +7,7 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     // Sanity already serves responsive CDN images and fallback launch assets are
-    // pre-compressed. Avoid coupling this Cloudflare build to Next's image route.
+    // pre-compressed, so the publication deliberately renders their source URLs.
     rules: { "@next/next/no-img-element": "off" },
   },
   // Override default ignores of eslint-config-next.

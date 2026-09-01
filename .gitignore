@@ -16,7 +16,6 @@
 
 # next.js
 /.next/
-/.vinext/
 /out/
 
 # misc
@@ -42,6 +41,5 @@ next-env.d.ts
 /dist/
 /cms/dist/
 /cms/.sanity/
-/.wrangler/
 /outputs/
 /work/

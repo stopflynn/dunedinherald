@@ -1,16 +1,62 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { once } from "node:events";
+import { spawn } from "node:child_process";
+import test, { after, before } from "node:test";
+import { fileURLToPath } from "node:url";
+
+const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+let serverProcess;
+let baseUrl;
+
+before(async () => {
+  serverProcess = spawn(process.execPath, ["server.mjs"], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      PORT: "0",
+      SANITY_PROJECT_ID: "",
+      SANITY_READ_TOKEN: "",
+      SITE_ACCESS_PASSWORD: "",
+      SITE_ACCESS_COOKIE_SECRET: "",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let output = "";
+  const ready = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timed out waiting for the production server.\n${output}`));
+    }, 30_000);
+
+    function inspect(chunk) {
+      output += chunk.toString();
+      const match = output.match(/Ready on http:\/\/0\.0\.0\.0:(\d+)/);
+      if (match) {
+        clearTimeout(timeout);
+        resolve(`http://127.0.0.1:${match[1]}`);
+      }
+    }
+
+    serverProcess.stdout.on("data", inspect);
+    serverProcess.stderr.on("data", inspect);
+    serverProcess.once("exit", (code, signal) => {
+      clearTimeout(timeout);
+      reject(new Error(`Production server exited before it was ready (${code ?? signal}).\n${output}`));
+    });
+    serverProcess.once("error", reject);
+  });
+
+  baseUrl = await ready;
+});
+
+after(async () => {
+  if (!serverProcess || serverProcess.exitCode !== null) return;
+  serverProcess.kill("SIGTERM");
+  await once(serverProcess, "exit");
+});
 
 async function render(path = "/") {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}-${path}`);
-  const { default: worker } = await import(workerUrl.href);
-
-  return worker.fetch(
-    new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
+  return fetch(`${baseUrl}${path}`, { headers: { accept: "text/html" } });
 }
 
 test("server-renders the publication homepage", async () => {

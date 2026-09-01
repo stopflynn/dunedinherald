@@ -16,17 +16,19 @@ export default async function AboutPage() {
         <p className="standfirst">{aboutPage.standfirst}</p>
         <div className="body">
           {aboutPage.body.map((block, index) => {
-            if (block._type === "block") {
-              switch (block.style) {
-                case "h2":
-                  return <h2 key={index}>{block.children[0].text}</h2>;
-                case "blockquote":
-                  return <blockquote key={index}>{block.children[0].text}</blockquote>;
-                default:
-                  return <p key={index}>{block.children[0].text}</p>;
-              }
+            if (typeof block === "string") return <p key={index}>{block}</p>;
+
+            const text = block.children?.map((child) => child.text || "").join("") || "";
+            if (!text) return null;
+
+            switch (block.style) {
+              case "h2":
+                return <h2 key={block._key || index}>{text}</h2>;
+              case "blockquote":
+                return <blockquote key={block._key || index}>{text}</blockquote>;
+              default:
+                return <p key={block._key || index}>{text}</p>;
             }
-            return null;
           })}
         </div>
       </main>

@@ -4,10 +4,10 @@ A lightweight satire publication website with a separately deployed, managed-aut
 
 ## Architecture
 
-- `app/`, `components/`, `lib/`: public site built with Next-compatible Vinext and deployed to Cloudflare.
+- `app/`, `components/`, `lib/`: public site built with Next.js and deployed to GoDaddy Node.js Hosting.
+- `server.mjs`: production Node.js entry point. It listens on the `PORT` assigned by GoDaddy.
 - `cms/`: Sanity Studio. Sanity manages editor authentication, drafts, image storage and publishing permissions.
 - `public/news/`: bundled launch stories used as a fallback before the CMS is connected.
-- `wrangler.jsonc`: independent Cloudflare Worker configuration owned with the source code.
 
 The public site has no database, upload endpoint or write API. This keeps the attack surface and maintenance burden small. CMS credentials stay on Sanity; the website receives only a server-side, read-only content token. An optional shared-password gate can be enabled for private previews.
 
@@ -20,19 +20,33 @@ npm run dev
 
 Copy `.env.example` to `.env.local` when connecting Sanity. Keep the dataset private and use a read-only viewer token.
 
-`SITE_URL` is the canonical public origin used for `robots.txt` and `sitemap.xml`. Local overrides belong in `.env.local`; the production value lives in `wrangler.jsonc`.
+`SITE_URL` is the canonical public origin used for `robots.txt` and `sitemap.xml`. Local overrides belong in `.env.local`; configure the production value in the GoDaddy app settings.
 
-## Independent Cloudflare deployment
+## GoDaddy Node.js deployment
 
-The website has no dependency on OpenAI Sites. Its build and runtime configuration live in `wrangler.jsonc`.
+Deploy the repository root as a Next.js application using [GoDaddy Node.js Hosting](https://www.godaddy.com/help/godaddy-nodejs-hosting-faq-42915). Ordinary static-file hosting cannot run the server-rendered pages, access API or password gate.
+
+1. Run `npm install`, `npm run lint` and `npm test` locally.
+2. In GoDaddy Node.js Hosting, either connect this Git repository or upload a ZIP of the repository root. Do not include `node_modules`, `.next`, `.env*` or generated CMS files in a ZIP.
+3. Configure the environment variables from `.env.example` in the app settings. Secret values must remain server-only.
+4. Deploy to GoDaddy's private preview and verify the home page, an article, a category, `/sitemap.xml` and the optional access gate.
+5. Publish the preview, connect `dunedinherald.com`, and only then switch the domain's DNS away from the old host.
+
+GoDaddy installs the packages and runs the existing `build` and `start` scripts. The production server binds to GoDaddy's `PORT` automatically. The root package is the only app GoDaddy runs; the nested `cms/` project remains an independently deployed Sanity Studio.
+
+### Production environment
+
+Set these values in GoDaddy before publishing:
 
 ```sh
-npx wrangler login
-npm run deploy:check
-npm run deploy
+SITE_URL=https://dunedinherald.com
+SANITY_PROJECT_ID=your-project-id
+SANITY_DATASET=production
+SANITY_API_VERSION=2026-08-01
+SANITY_READ_TOKEN=your-read-only-viewer-token
 ```
 
-Manage the Sanity connection values and optional access-gate values as Cloudflare Worker variables or secrets. `keep_vars` is enabled so a source deployment preserves values managed in the Cloudflare dashboard. Never place secret values in `wrangler.jsonc`.
+`SANITY_READ_TOKEN` is required when the Sanity dataset is private. Never commit the real token or upload an `.env` file.
 
 ## Optional whole-site password
 

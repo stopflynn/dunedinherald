@@ -13,8 +13,8 @@ const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
 function clientKey(request: NextRequest) {
-  return request.headers.get("cf-connecting-ip")
-    || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip")
     || "unknown";
 }
 
