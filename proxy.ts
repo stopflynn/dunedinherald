@@ -4,7 +4,7 @@ import {
   isAccessTokenValid,
   isPasswordProtectionEnabled,
 } from "@/lib/site-access";
-import { redirectToInternalPath } from "@/lib/internal-redirect";
+import { redirectRequestToInternalPath } from "@/lib/internal-redirect";
 
 const alwaysPublicPaths = [
   "/access",
@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
 
   const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   const params = new URLSearchParams({ returnTo });
-  return redirectToInternalPath(`/access?${params}`, 307);
+  return redirectRequestToInternalPath(request, `/access?${params}`, 307);
 }
 
 export const config = {

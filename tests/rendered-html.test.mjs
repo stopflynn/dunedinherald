@@ -146,6 +146,23 @@ test("a correct password sets access and redirects without exposing the hosting 
   assert.doesNotMatch(response.headers.get("location") ?? "", /0\.0\.0\.0|20011/);
 });
 
+test("password protection redirects visitors to the access page on the current domain", async () => {
+  const response = await fetch(`${protectedBaseUrl}/story/terrified-bakery-kosmos?edition=preview`, {
+    headers: {
+      "x-forwarded-host": "preview.dunedinherald.example",
+      "x-forwarded-proto": "https",
+    },
+    redirect: "manual",
+  });
+
+  assert.equal(response.status, 307);
+  assert.equal(
+    response.headers.get("location"),
+    "https://preview.dunedinherald.example/access?returnTo=%2Fstory%2Fterrified-bakery-kosmos%3Fedition%3Dpreview",
+  );
+  assert.doesNotMatch(response.headers.get("location") ?? "", /0\.0\.0\.0|20011/);
+});
+
 test("rejects external access return URLs", async () => {
   const form = new FormData();
   form.set("returnTo", "/\\\\attacker.example/path");
