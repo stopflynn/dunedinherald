@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeInternalPath } from "@/lib/internal-redirect";
 
 export const metadata: Metadata = {
   title: "Private edition",
@@ -24,10 +25,7 @@ export default async function AccessPage({
 }) {
   const params = await searchParams;
   const error = first(params.error);
-  const requestedReturnTo = first(params.returnTo) || "/";
-  const returnTo = requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//")
-    ? requestedReturnTo
-    : "/";
+  const returnTo = safeInternalPath(first(params.returnTo));
 
   return (
     <main className="access-page">

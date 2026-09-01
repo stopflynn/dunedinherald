@@ -7,9 +7,11 @@ import { fileURLToPath } from "node:url";
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 let serverProcess;
 let baseUrl;
+let protectedServerProcess;
+let protectedBaseUrl;
 
-before(async () => {
-  serverProcess = spawn(process.execPath, ["server.mjs"], {
+function startServer(environment = {}) {
+  const child = spawn(process.execPath, ["server.mjs"], {
     cwd: projectRoot,
     env: {
       ...process.env,
@@ -18,12 +20,13 @@ before(async () => {
       SANITY_READ_TOKEN: "",
       SITE_ACCESS_PASSWORD: "",
       SITE_ACCESS_COOKIE_SECRET: "",
+      ...environment,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
 
   let output = "";
-  const ready = new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error(`Timed out waiting for the production server.\n${output}`));
     }, 30_000);
@@ -33,26 +36,39 @@ before(async () => {
       const match = output.match(/Ready on http:\/\/0\.0\.0\.0:(\d+)/);
       if (match) {
         clearTimeout(timeout);
-        resolve(`http://127.0.0.1:${match[1]}`);
+        resolve({ child, url: `http://127.0.0.1:${match[1]}` });
       }
     }
 
-    serverProcess.stdout.on("data", inspect);
-    serverProcess.stderr.on("data", inspect);
-    serverProcess.once("exit", (code, signal) => {
+    child.stdout.on("data", inspect);
+    child.stderr.on("data", inspect);
+    child.once("exit", (code, signal) => {
       clearTimeout(timeout);
       reject(new Error(`Production server exited before it was ready (${code ?? signal}).\n${output}`));
     });
-    serverProcess.once("error", reject);
+    child.once("error", reject);
   });
+}
 
-  baseUrl = await ready;
+before(async () => {
+  const publicServer = await startServer();
+  serverProcess = publicServer.child;
+  baseUrl = publicServer.url;
+
+  const protectedServer = await startServer({
+    SITE_ACCESS_PASSWORD: "test-password-123",
+    SITE_ACCESS_COOKIE_SECRET: "test-cookie-secret-1234567890-abcdef",
+  });
+  protectedServerProcess = protectedServer.child;
+  protectedBaseUrl = protectedServer.url;
 });
 
 after(async () => {
-  if (!serverProcess || serverProcess.exitCode !== null) return;
-  serverProcess.kill("SIGTERM");
-  await once(serverProcess, "exit");
+  const processes = [serverProcess, protectedServerProcess].filter(
+    (child) => child && child.exitCode === null,
+  );
+  for (const child of processes) child.kill("SIGTERM");
+  await Promise.all(processes.map((child) => once(child, "exit")));
 });
 
 async function render(path = "/") {
@@ -96,4 +112,50 @@ test("renders the private-edition password form", async () => {
   assert.match(html, /Coming Soon/i);
   assert.match(html, /type="password"/i);
   assert.match(html, /action="\/api\/access"/i);
+});
+
+test("keeps access redirects on the visitor's current domain", async () => {
+  const form = new FormData();
+  form.set("returnTo", "/story/terrified-bakery-kosmos?edition=preview");
+
+  const response = await fetch(`${baseUrl}/api/access`, {
+    method: "POST",
+    body: form,
+    redirect: "manual",
+  });
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/story/terrified-bakery-kosmos?edition=preview");
+  assert.doesNotMatch(response.headers.get("location") ?? "", /0\.0\.0\.0|20011/);
+});
+
+test("a correct password sets access and redirects without exposing the hosting port", async () => {
+  const form = new FormData();
+  form.set("password", "test-password-123");
+  form.set("returnTo", "/story/terrified-bakery-kosmos");
+
+  const response = await fetch(`${protectedBaseUrl}/api/access`, {
+    method: "POST",
+    body: form,
+    redirect: "manual",
+  });
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/story/terrified-bakery-kosmos");
+  assert.match(response.headers.get("set-cookie") ?? "", /dh_site_access=/);
+  assert.doesNotMatch(response.headers.get("location") ?? "", /0\.0\.0\.0|20011/);
+});
+
+test("rejects external access return URLs", async () => {
+  const form = new FormData();
+  form.set("returnTo", "/\\\\attacker.example/path");
+
+  const response = await fetch(`${baseUrl}/api/access`, {
+    method: "POST",
+    body: form,
+    redirect: "manual",
+  });
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "/");
 });

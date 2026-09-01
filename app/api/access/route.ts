@@ -7,6 +7,7 @@ import {
   isPasswordProtectionEnabled,
   verifyAccessPassword,
 } from "@/lib/site-access";
+import { redirectToInternalPath, safeInternalPath } from "@/lib/internal-redirect";
 
 const ATTEMPT_LIMIT = 5;
 const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
@@ -19,15 +20,12 @@ function clientKey(request: NextRequest) {
 }
 
 function safeReturnTo(value: FormDataEntryValue | null) {
-  const path = typeof value === "string" ? value : "/";
-  return path.startsWith("/") && !path.startsWith("//") ? path : "/";
+  return safeInternalPath(value);
 }
 
-function redirectToAccess(request: NextRequest, error: string, returnTo: string) {
-  const url = new URL("/access", request.url);
-  url.searchParams.set("error", error);
-  url.searchParams.set("returnTo", returnTo);
-  return NextResponse.redirect(url, 303);
+function redirectToAccess(error: string, returnTo: string) {
+  const params = new URLSearchParams({ error, returnTo });
+  return redirectToInternalPath(`/access?${params}`, 303);
 }
 
 function isRateLimited(key: string) {
@@ -59,26 +57,26 @@ export async function POST(request: NextRequest) {
   const returnTo = safeReturnTo(form.get("returnTo"));
 
   if (!(await isPasswordProtectionEnabled())) {
-    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+    return redirectToInternalPath(returnTo, 303);
   }
-  if (!hasAccessSecrets()) return redirectToAccess(request, "configuration", returnTo);
+  if (!hasAccessSecrets()) return redirectToAccess("configuration", returnTo);
 
   const key = clientKey(request);
-  if (isRateLimited(key)) return redirectToAccess(request, "limited", returnTo);
+  if (isRateLimited(key)) return redirectToAccess("limited", returnTo);
 
   const password = form.get("password");
   const valid = typeof password === "string" && await verifyAccessPassword(password);
   if (!valid) {
     recordFailure(key);
     await new Promise((resolve) => setTimeout(resolve, 350));
-    return redirectToAccess(request, "invalid", returnTo);
+    return redirectToAccess("invalid", returnTo);
   }
 
   attempts.delete(key);
   const token = await createAccessToken();
-  if (!token) return redirectToAccess(request, "configuration", returnTo);
+  if (!token) return redirectToAccess("configuration", returnTo);
 
-  const response = NextResponse.redirect(new URL(returnTo, request.url), 303);
+  const response = redirectToInternalPath(returnTo, 303);
   response.cookies.set({
     name: ACCESS_COOKIE_NAME,
     value: token,

@@ -4,6 +4,7 @@ import {
   isAccessTokenValid,
   isPasswordProtectionEnabled,
 } from "@/lib/site-access";
+import { redirectToInternalPath } from "@/lib/internal-redirect";
 
 const alwaysPublicPaths = [
   "/access",
@@ -25,11 +26,9 @@ export async function proxy(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
   if (await isAccessTokenValid(accessToken)) return NextResponse.next();
 
-  const accessUrl = request.nextUrl.clone();
-  accessUrl.pathname = "/access";
-  accessUrl.search = "";
-  accessUrl.searchParams.set("returnTo", `${request.nextUrl.pathname}${request.nextUrl.search}`);
-  return NextResponse.redirect(accessUrl, 307);
+  const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  const params = new URLSearchParams({ returnTo });
+  return redirectToInternalPath(`/access?${params}`, 307);
 }
 
 export const config = {
